@@ -10,7 +10,7 @@ contract Market{
   
     struct Listing{
         address owner;       // who owns the listed artifact
-        uint256 buyoutPrice; // price of the artifact in 
+        uint256 buyoutPrice; // price of the artifact in wei
     }
 
     address public admin;  // The admin can reset the token contract after each new round
@@ -20,10 +20,15 @@ contract Market{
     
     IERC721 private DFTokens; 
         
-    constructor(address tokensAddress, uint256 date){
+    constructor(address tokensAddress, uint256 _minutes){
         admin = msg.sender; // admin can upgrade to new rounds
         DFTokens = IERC721(tokensAddress);  
-        endDate = date;
+        endDate = block.timestamp + (_minutes * 60);
+    }
+
+    modifier onlyAdmin(){
+        require(msg.sender == admin, "Only the admin can access this funciton");
+        _;
     }
 
 
@@ -46,8 +51,10 @@ contract Market{
 
     // buying function. User input is the price they pay
     function buy(uint256 tokenID) external payable  {
+        //Retains the original values in memory
         Listing memory oldListing = listings[tokenID];
         
+        //As the token is bought, the listing is closed
         listings[tokenID]= Listing({
             owner: address(0),
             buyoutPrice: 0
@@ -62,7 +69,7 @@ contract Market{
     // Useful if you want your tokens back
     function unlist (uint256 id) external {
         address holder = listings[id].owner;
-        require(msg.sender == holder);
+        require(msg.sender == holder, "Only the owner can unlist");
         
         listings[id]= Listing({
             owner: address(0),
@@ -75,15 +82,13 @@ contract Market{
 
     // ADMIN 
     // Change the tokens address between rounds
-    function newRound(uint256 date, address tokens) external{
+    function newRound(uint256 _minutes, address tokens) external onlyAdmin(){
         require(block.timestamp>endDate,"too early");
-        require(msg.sender == admin, "admin function only");
-        endDate = date;
+        endDate = block.timestamp + (_minutes * 60);
         DFTokens = IERC721(tokens);
     }
 
-    function giveOwnership(address newOwner) external{
-        require(msg.sender == admin, "admin function only");
+    function giveOwnership(address newOwner) external onlyAdmin() {
         pendingAdmin = newOwner;
     }
 
